@@ -453,6 +453,9 @@ def main():
                 #     break
                 if auto_look_earliest_appointment():
                     print("Found and locked an appointment! Script sleeping.")
+                    print("\a") # Beep sound
+                    time.sleep(1)
+                    print("\a") # Beep sound
                 last_check_time = current_time
 
             time.sleep(1)
