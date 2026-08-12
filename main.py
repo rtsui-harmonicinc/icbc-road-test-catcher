@@ -412,6 +412,19 @@ def auto_book_earliest_appointment():
 
     return True
 
+def auto_look_earliest_appointment():
+    appointment = get_earliest_appointment()
+    if not appointment:
+        print("No suitable dates available for booking")
+        return False
+
+    print(f"Found early date: {appointment['appointmentDt']['date']}")
+
+    booked_ts = lock_appointment(appointment)
+    if not booked_ts:
+        return False
+    return True
+
 
 def main():
     if not validate_config():
@@ -435,9 +448,11 @@ def main():
                 last_token_time = current_time
 
             if current_time - last_check_time >= CONFIG["check_interval"]:
-                if auto_book_earliest_appointment():
-                    print("Booking completed successfully! Script terminating.")
-                    break
+                # if auto_book_earliest_appointment():
+                #     print("Booking completed successfully! Script terminating.")
+                #     break
+                if auto_look_earliest_appointment():
+                    print("Found and locked an appointment! Script sleeping.")
                 last_check_time = current_time
 
             time.sleep(1)
