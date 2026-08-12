@@ -434,7 +434,6 @@ def main():
         print("Failed to get token. Check your credentials.")
         return
 
-    last_check_time = time.time()
     last_token_time = time.time()
 
     print("Script started. Beginning monitoring for available dates...")
@@ -447,18 +446,16 @@ def main():
                 refresh_token()
                 last_token_time = current_time
 
-            if current_time - last_check_time >= CONFIG["check_interval"]:
-                # if auto_book_earliest_appointment():
-                #     print("Booking completed successfully! Script terminating.")
-                #     break
-                if auto_look_earliest_appointment():
-                    print("Found and locked an appointment! Script sleeping.")
-                    print("\a") # Beep sound
-                    time.sleep(1)
-                    print("\a") # Beep sound
-                last_check_time = current_time
+            # if auto_book_earliest_appointment():
+            #     print("Booking completed successfully! Script terminating.")
+            #     break
+            if auto_look_earliest_appointment():
+                print("Found and locked an appointment! Script sleeping.")
+                print("\a") # Beep sound
+                time.sleep(1)
+                print("\a") # Beep sound
 
-            time.sleep(1)
+            time.sleep(CONFIG["check_interval"])
 
     except KeyboardInterrupt:
         print("\nScript stopped by user")
