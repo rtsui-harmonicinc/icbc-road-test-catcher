@@ -30,8 +30,8 @@ CONFIG = {
         "licenseNumber": os.getenv("USER_LICENSE_NUMBER")
     },
 
-    # Duncan
-    "location_ids": [214],
+    # Wayburne
+    "location_ids": [274],
 
     "gmail": {
         "email": os.getenv("USER_GMAIL"),
