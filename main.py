@@ -22,7 +22,7 @@ CONFIG = {
     },
 
     "appointment_request_base": {
-        "examType": "5-R-1",
+        "examType": "7-R-1",
         "examDate": "2025-06-13",
         "prfDaysOfWeek": "[0,1,2,3,4,5,6]",
         "prfPartsOfDay": "[0,1]",
