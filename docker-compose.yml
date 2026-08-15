@@ -3,6 +3,8 @@ services:
     build: .
     container_name: icbc-road-test-catcher
     env_file: .env
+    # * Create a .env file in the same directory and add the following environment variables:
+    # * or you can uncomment the environment section below and add the variables directly.
     # environment:
     #   - TZ=America/Vancouver
     #   - USER_LAST_NAME=YourLastName
