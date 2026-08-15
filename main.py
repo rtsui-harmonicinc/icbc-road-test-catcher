@@ -6,6 +6,7 @@ import time
 import pytz
 import re
 import os
+import signal
 import logging
 
 logging.basicConfig(
@@ -60,6 +61,26 @@ CONFIG = {
 current_token = None
 last_token_refresh = None
 drvr_id = None
+shutdown_requested = False
+
+
+def handle_shutdown(signum, frame):
+    global shutdown_requested
+    signal_name = signal.Signals(signum).name if hasattr(signal, "Signals") else str(signum)
+    logger.info(f"Received {signal_name}, shutting down gracefully...")
+    shutdown_requested = True
+
+
+def sleep_with_shutdown(seconds):
+    if seconds <= 0:
+        return
+
+    end_time = time.monotonic() + seconds
+    while not shutdown_requested:
+        remaining = end_time - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(1, remaining))
 
 
 def validate_config():
@@ -210,7 +231,7 @@ def lock_appointment(appointment):
             )
             response.raise_for_status()
 
-            time.sleep(10)
+            sleep_with_shutdown(10)
 
             response = client.put(
                 CONFIG["lock_url"],
@@ -408,7 +429,10 @@ def auto_book_earliest_appointment():
 
     otp_code = None
     for _ in range(20):
-        time.sleep(10)
+        if shutdown_requested:
+            logger.info("Shutdown requested while waiting for OTP code")
+            return False
+        sleep_with_shutdown(10)
         otp_code = get_otp_from_email()
         if otp_code:
             break
@@ -451,46 +475,59 @@ def run_hourly_check_window():
     last_token_time = time.time()
 
     for _ in range(15):
+        if shutdown_requested:
+            logger.info("Shutdown requested during hourly check window")
+            return False
+
         current_time = time.time()
 
         if current_time - last_token_time >= CONFIG["token_refresh_interval"]:
             refresh_token()
             last_token_time = current_time
-        
+
         if CONFIG["action"] == "book" and auto_book_earliest_appointment():
             logger.info("Booking completed successfully! Script terminating.")
             return True
         if CONFIG["action"] == "look" and auto_look_earliest_appointment():
             logger.info("Found and locked an appointment! Script sleeping until the next hourly window.")
             print("\a") # Beep sound
-            time.sleep(.1)
+            sleep_with_shutdown(.1)
             print("\a") # Beep sound
-            time.sleep(.1)
+            sleep_with_shutdown(.1)
             print("\a") # Beep sound
 
-        time.sleep(CONFIG["check_interval"])
+        sleep_with_shutdown(CONFIG["check_interval"])
 
     return True
 
 
 def main():
+    global shutdown_requested
+
+    signal.signal(signal.SIGINT, handle_shutdown)
+    signal.signal(signal.SIGTERM, handle_shutdown)
+
     if not validate_config():
         logger.error("Startup aborted: required environment variables are missing.")
         return
 
     logger.info("Starting ICBC checker...")
-    while True:
+    while not shutdown_requested:
         if refresh_token():
             break
         logger.warning("Failed to get token. Retrying in 30 seconds. Check your ICBC credentials and network.")
-        time.sleep(30)
+        sleep_with_shutdown(30)
+
+    if shutdown_requested:
+        logger.info("Shutdown requested before startup completed.")
+        return
 
     next_check_time = get_next_hourly_check_time()
 
     logger.info("Script started. Monitoring will run at :59 of each hour for 10 intervals.")
 
     try:
-        while True:
+        while not shutdown_requested:
             now = datetime.now(pytz.timezone(CONFIG["timezone"]))
             if now >= next_check_time:
                 logger.info(f"Starting hourly check window at {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
@@ -498,10 +535,15 @@ def main():
                 next_check_time = get_next_hourly_check_time()
                 continue
 
-            time.sleep(5)
+            sleep_with_shutdown(5)
 
     except KeyboardInterrupt:
         logger.info("\nScript stopped by user")
+    finally:
+        if shutdown_requested:
+            logger.info("Shutdown complete. Exiting cleanly.")
+        else:
+            logger.info("Script exited normally.")
 
 
 if __name__ == "__main__":
