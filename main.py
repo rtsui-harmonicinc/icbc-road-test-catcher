@@ -53,7 +53,8 @@ CONFIG = {
 
     "timezone": "America/Vancouver",
     "check_interval": 20,
-    "token_refresh_interval": 1500
+    "token_refresh_interval": 1500,
+    "action": os.getenv("ACTION", "look")  # Default action is "look"
 }
 
 current_token = None
@@ -455,11 +456,11 @@ def run_hourly_check_window():
         if current_time - last_token_time >= CONFIG["token_refresh_interval"]:
             refresh_token()
             last_token_time = current_time
-
-        # if auto_book_earliest_appointment():
-        #     logger.info("Booking completed successfully! Script terminating.")
-        #     return True
-        if auto_look_earliest_appointment():
+        
+        if CONFIG["action"] == "book" and auto_book_earliest_appointment():
+            logger.info("Booking completed successfully! Script terminating.")
+            return True
+        if CONFIG["action"] == "look" and auto_look_earliest_appointment():
             logger.info("Found and locked an appointment! Script sleeping until the next hourly window.")
             print("\a") # Beep sound
             time.sleep(.1)
