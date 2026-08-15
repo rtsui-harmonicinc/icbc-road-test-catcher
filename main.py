@@ -45,7 +45,7 @@ CONFIG = {
     },
 
     "timezone": "America/Vancouver",
-    "check_interval": 90,
+    "check_interval": 20,
     "token_refresh_interval": 1500
 }
 
@@ -426,20 +426,18 @@ def auto_look_earliest_appointment():
     return True
 
 
-def main():
-    if not validate_config():
-        return
-        
-    if not refresh_token():
-        print("Failed to get token. Check your credentials.")
-        return
+def get_next_hourly_check_time():
+    now = datetime.now(pytz.timezone(CONFIG["timezone"]))
+    next_run = now.replace(minute=59, second=0, microsecond=0)
+    if next_run <= now:
+        next_run += timedelta(hours=1)
+    return next_run
 
+
+def run_hourly_check_window():
     last_token_time = time.time()
 
-    print("Script started. Beginning monitoring for available dates...")
-
-    try:
-        while True:
+    for _ in range(15):
             current_time = time.time()
 
             if current_time - last_token_time >= CONFIG["token_refresh_interval"]:
@@ -458,6 +456,36 @@ def main():
                 print("\a") # Beep sound
 
             time.sleep(CONFIG["check_interval"])
+
+    return True
+
+
+def main():
+    if not validate_config():
+        logger.error("Startup aborted: required environment variables are missing.")
+        return
+
+    logger.info("Starting ICBC checker...")
+    while True:
+        if refresh_token():
+            break
+        logger.warning("Failed to get token. Retrying in 30 seconds. Check your ICBC credentials and network.")
+        time.sleep(30)
+
+    next_check_time = get_next_hourly_check_time()
+
+    logger.info("Script started. Monitoring will run at :59 of each hour for 10 intervals.")
+
+    try:
+        while True:
+            now = datetime.now(pytz.timezone(CONFIG["timezone"]))
+            if now >= next_check_time:
+                logger.info(f"Starting hourly check window at {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
+                run_hourly_check_window()
+                next_check_time = get_next_hourly_check_time()
+                continue
+
+            time.sleep(5)
 
     except KeyboardInterrupt:
         print("\nScript stopped by user")
