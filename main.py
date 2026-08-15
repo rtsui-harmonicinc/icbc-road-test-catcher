@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import imaplib
 import httpx
 import email
@@ -6,6 +6,13 @@ import time
 import pytz
 import re
 import os
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 CONFIG = {
     "login_url": "https://onlinebusiness.icbc.com/deas-api/v1/webLogin/webLogin",
@@ -72,8 +79,8 @@ def validate_config():
             missing_vars.append(var)
     
     if missing_vars:
-        print(f"Error: Missing required environment variables: {', '.join(missing_vars)}")
-        print("Please set these variables in your .env file or environment")
+        logger.error(f"Error: Missing required environment variables: {', '.join(missing_vars)}")
+        logger.info("Please set these variables in your .env file or environment")
         return False
     
     return True
@@ -83,6 +90,7 @@ def refresh_token():
     global current_token, last_token_refresh, drvr_id
     try:
         with httpx.Client() as client:
+            logger.info(f"Refreshing token... {CONFIG['credentials']['drvrLastName']} {CONFIG['credentials']['licenceNumber']}")
             response = client.put(
                 CONFIG["login_url"],
                 json=CONFIG["credentials"],
@@ -101,16 +109,16 @@ def refresh_token():
                 try:
                     login_data = response.json()
                     drvr_id = login_data.get('drvrId')
-                    print(f"Token refreshed. drvrID: {drvr_id}")
+                    logger.info(f"Token refreshed. drvrID: {drvr_id}")
                 except:
-                    print("Failed to get drvrID from response")
+                    logger.info("Failed to get drvrID from response")
 
                 return True
 
-        print("Failed to get token from headers")
+        logger.info("Failed to get token from headers")
         return False
     except Exception as e:
-        print(f"Error refreshing token: {e}")
+        logger.info(f"Error refreshing token: {e}")
         return False
 
 
@@ -143,7 +151,7 @@ def get_earliest_appointment():
                 response.raise_for_status()
 
                 appointments = response.json()
-                print(f"Found {len(appointments)} available dates for location {location_id}")
+                logger.info(f"Found {len(appointments)} available dates for location {location_id}")
 
                 for appointment in appointments:
                     if "appointmentDt" in appointment:
@@ -158,7 +166,7 @@ def get_earliest_appointment():
         return earliest_appointment
 
     except Exception as e:
-        print(f"Error checking available dates: {e}")
+        logger.info(f"Error checking available dates: {e}")
         current_token = None
         return None
 
@@ -216,11 +224,11 @@ def lock_appointment(appointment):
 
             resulting_timezone = response.json()
 
-            print(f"Date {appointment['appointmentDt']['date']} successfully locked")
+            logger.info(f"Date {appointment['appointmentDt']['date']} successfully locked")
             return resulting_timezone["bookedTs"]
 
     except Exception as e:
-        print(f"Error locking appointment: {e}")
+        logger.info(f"Error locking appointment: {e}")
         return None
 
 
@@ -251,14 +259,14 @@ def send_otp_email(booked_ts):
 
             result = response.json()
             if result.get("code") == "success":
-                print("OTP code sent to email")
+                logger.info("OTP code sent to email")
                 return True
             else:
-                print("Failed to send OTP code")
+                logger.info("Failed to send OTP code")
                 return False
 
     except Exception as e:
-        print(f"Error sending OTP code: {e}")
+        logger.info(f"Error sending OTP code: {e}")
         return False
 
 
@@ -271,18 +279,18 @@ def get_otp_from_email():
 
         status, messages = mail.search(None, '(FROM "roadtests-donotreply@icbc.com")')
         if status != "OK":
-            print("Failed to find emails from ICBC")
+            logger.info("Failed to find emails from ICBC")
             return None
 
         message_ids = messages[0].split()
         if not message_ids:
-            print("No new emails from ICBC")
+            logger.info("No new emails from ICBC")
             return None
 
         latest_email_id = message_ids[-1]
         status, msg_data = mail.fetch(latest_email_id, "(RFC822)")
         if status != "OK":
-            print("Failed to read email")
+            logger.info("Failed to read email")
             return None
 
         raw_email = msg_data[0][1]
@@ -295,14 +303,18 @@ def get_otp_from_email():
                 if match:
                     return match.group(1)
 
-        print("Failed to find OTP code in email")
+        logger.info("Failed to find OTP code in email")
         return None
 
     except Exception as e:
-        print(f"Error getting OTP code from email: {e}")
+        logger.info(f"Error getting OTP code from email: {e}")
         return None
     finally:
-        mail.logout()
+        if mail is not None:
+            try:
+                mail.logout()
+            except Exception:
+                logger.warning("Failed to log out of Gmail IMAP session", exc_info=True)
 
 
 def verify_otp(booked_ts, otp_code):
@@ -330,14 +342,14 @@ def verify_otp(booked_ts, otp_code):
 
             result = response.json()
             if result.get("status") == "VERIFIED":
-                print("OTP code successfully verified")
+                logger.info("OTP code successfully verified")
                 return True
             else:
-                print("Invalid OTP code")
+                logger.info("Invalid OTP code")
                 return False
 
     except Exception as e:
-        print(f"Error verifying OTP code: {e}")
+        logger.info(f"Error verifying OTP code: {e}")
         return False
 
 
@@ -367,24 +379,24 @@ def book_appointment(booked_ts):
 
             result = response.json()
             if result.get("code") == "success":
-                print("Booking completed successfully!")
+                logger.info("Booking completed successfully!")
                 return True
             else:
-                print("Failed to complete booking")
+                logger.info("Failed to complete booking")
                 return False
 
     except Exception as e:
-        print(f"Error completing booking: {e}")
+        logger.info(f"Error completing booking: {e}")
         return False
 
 
 def auto_book_earliest_appointment():
     appointment = get_earliest_appointment()
     if not appointment:
-        print("No suitable dates available for booking")
+        logger.info("No suitable dates available for booking")
         return False
 
-    print(f"Found early date: {appointment['appointmentDt']['date']}")
+    logger.info(f"Found early date: {appointment['appointmentDt']['date']}")
 
     booked_ts = lock_appointment(appointment)
     if not booked_ts:
@@ -401,7 +413,7 @@ def auto_book_earliest_appointment():
             break
 
     if not otp_code:
-        print("Failed to get OTP code from email")
+        logger.info("Failed to get OTP code from email")
         return False
 
     if not verify_otp(booked_ts, otp_code):
@@ -415,10 +427,10 @@ def auto_book_earliest_appointment():
 def auto_look_earliest_appointment():
     appointment = get_earliest_appointment()
     if not appointment:
-        print("No suitable dates available for booking")
+        logger.info("No suitable dates available for booking")
         return False
 
-    print(f"Found early date: {appointment['appointmentDt']['date']}")
+    logger.info(f"Found early date: {appointment['appointmentDt']['date']}")
 
     booked_ts = lock_appointment(appointment)
     if not booked_ts:
@@ -438,24 +450,24 @@ def run_hourly_check_window():
     last_token_time = time.time()
 
     for _ in range(15):
-            current_time = time.time()
+        current_time = time.time()
 
-            if current_time - last_token_time >= CONFIG["token_refresh_interval"]:
-                refresh_token()
-                last_token_time = current_time
+        if current_time - last_token_time >= CONFIG["token_refresh_interval"]:
+            refresh_token()
+            last_token_time = current_time
 
-            # if auto_book_earliest_appointment():
-            #     print("Booking completed successfully! Script terminating.")
-            #     break
-            if auto_look_earliest_appointment():
-                print("Found and locked an appointment! Script sleeping.")
-                print("\a") # Beep sound
-                time.sleep(.1)
-                print("\a") # Beep sound
-                time.sleep(.1)
-                print("\a") # Beep sound
+        # if auto_book_earliest_appointment():
+        #     logger.info("Booking completed successfully! Script terminating.")
+        #     return True
+        if auto_look_earliest_appointment():
+            logger.info("Found and locked an appointment! Script sleeping until the next hourly window.")
+            print("\a") # Beep sound
+            time.sleep(.1)
+            print("\a") # Beep sound
+            time.sleep(.1)
+            print("\a") # Beep sound
 
-            time.sleep(CONFIG["check_interval"])
+        time.sleep(CONFIG["check_interval"])
 
     return True
 
@@ -488,7 +500,7 @@ def main():
             time.sleep(5)
 
     except KeyboardInterrupt:
-        print("\nScript stopped by user")
+        logger.info("\nScript stopped by user")
 
 
 if __name__ == "__main__":
