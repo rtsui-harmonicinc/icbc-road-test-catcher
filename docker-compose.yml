@@ -2,12 +2,13 @@ services:
   icbc-catcher:
     build: .
     container_name: icbc-road-test-catcher
-    environment:
-      - TZ=America/Vancouver
-      - USER_LAST_NAME=YourLastName
-      - USER_LICENSE_NUMBER=1234567
-      - USER_KEYWORD=your_keyword_here
-      - USER_GMAIL=your.email@gmail.com
-      - USER_GMAIL_APP_PASSWORD=your_16_character_app_password
-      - DESIRED_DATE_START=2025-06-24
-      - DESIRED_DATE_END=2025-06-30
+    env_file: .env
+    # environment:
+    #   - TZ=America/Vancouver
+    #   - USER_LAST_NAME=YourLastName
+    #   - USER_LICENSE_NUMBER=1234567
+    #   - USER_KEYWORD=your_keyword_here
+    #   - USER_GMAIL=your.email@gmail.com
+    #   - USER_GMAIL_APP_PASSWORD=your_16_character_app_password
+    #   - DESIRED_DATE_START=2025-06-24
+    #   - DESIRED_DATE_END=2025-06-30
