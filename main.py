@@ -173,6 +173,7 @@ def get_earliest_appointment():
                 response.raise_for_status()
 
                 appointments = response.json()
+                logger.info(f"Response for location {location_id}: {appointments}")
                 logger.info(f"Found {len(appointments)} available dates for location {location_id}")
 
                 for appointment in appointments:
