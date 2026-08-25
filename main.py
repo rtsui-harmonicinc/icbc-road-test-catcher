@@ -56,7 +56,7 @@ CONFIG = {
     },
 
     "timezone": "America/Vancouver",
-    "check_interval": 10,
+    "check_interval": 5,
     "token_refresh_interval": 1500,
     "action": os.getenv("ACTION", "look")  # Default action is "look"
 }
@@ -467,18 +467,19 @@ def auto_look_earliest_appointment():
     return True
 
 
-def get_next_hourly_check_time():
+def get_next_check_time():
     now = datetime.now(pytz.timezone(CONFIG["timezone"]))
-    next_run = now.replace(minute=59, second=0, microsecond=0)
-    if next_run <= now:
-        next_run += timedelta(hours=1)
-    return next_run
+    for minute in (29, 59):
+        next_run = now.replace(minute=minute, second=0, microsecond=0)
+        if next_run > now:
+            return next_run
+    return (now + timedelta(hours=1)).replace(minute=29, second=0, microsecond=0)
 
 
 def run_hourly_check_window():
     last_token_time = time.time()
 
-    for _ in range(15):
+    for _ in range(10):
         if shutdown_requested:
             logger.info("Shutdown requested during hourly check window")
             return False
@@ -526,9 +527,9 @@ def main():
         logger.info("Shutdown requested before startup completed.")
         return
 
-    next_check_time = get_next_hourly_check_time()
+    next_check_time = get_next_check_time()
 
-    logger.info("Script started. Monitoring will run at :59 of each hour for 10 intervals.")
+    logger.info("Script started. Monitoring will run at :29 and :59 of each hour for 15 intervals.")
 
     try:
         while not shutdown_requested:
@@ -536,7 +537,7 @@ def main():
             if now >= next_check_time:
                 logger.info(f"Starting hourly check window at {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
                 run_hourly_check_window()
-                next_check_time = get_next_hourly_check_time()
+                next_check_time = get_next_check_time()
                 continue
 
             sleep_with_shutdown(5)
