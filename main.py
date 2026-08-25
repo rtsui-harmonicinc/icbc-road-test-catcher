@@ -1,13 +1,16 @@
-from datetime import datetime, timedelta
-import imaplib
-import httpx
 import email
-import time
-import pytz
-import re
-import os
-import signal
+import imaplib
 import logging
+import math
+import os
+import random
+import re
+import signal
+import time
+from datetime import datetime, timedelta
+
+import httpx
+import pytz
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,7 +56,7 @@ CONFIG = {
     },
 
     "timezone": "America/Vancouver",
-    "check_interval": 20,
+    "check_interval": 10,
     "token_refresh_interval": 1500,
     "action": os.getenv("ACTION", "look")  # Default action is "look"
 }
@@ -497,7 +500,7 @@ def run_hourly_check_window():
             sleep_with_shutdown(.1)
             print("\a") # Beep sound
 
-        sleep_with_shutdown(CONFIG["check_interval"])
+        sleep_with_shutdown(CONFIG["check_interval"]+ math.floor(random.random() * 5))
 
     return True
 
