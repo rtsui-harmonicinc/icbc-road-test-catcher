@@ -590,17 +590,17 @@ def auto_look_earliest_appointment():
 
 def get_next_check_time():
     now = datetime.now(pytz.timezone(CONFIG["timezone"]))
-    for minute in (29, 59):
+    for minute in (14, 29, 44, 59):
         next_run = now.replace(minute=minute, second=0, microsecond=0)
         if next_run > now:
             return next_run
-    return (now + timedelta(hours=1)).replace(minute=29, second=0, microsecond=0)
+    return (now + timedelta(hours=1)).replace(minute=14, second=0, microsecond=0)
 
 
 def run_hourly_check_window():
     last_token_time = time.time()
 
-    for _ in range(10):
+    for _ in range(5):
         if shutdown_requested:
             logger.info("Shutdown requested during hourly check window")
             return False
@@ -650,7 +650,7 @@ def main():
 
     next_check_time = get_next_check_time()
 
-    logger.info("Script started. Monitoring will run at :29 and :59 of each hour for 15 intervals.")
+    logger.info("Script started. Monitoring will run at :14, :29, :44, and :59 for 5 intervals each.")
 
     try:
         while not shutdown_requested:
