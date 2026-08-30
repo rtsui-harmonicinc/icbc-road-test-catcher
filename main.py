@@ -13,7 +13,7 @@ import httpx
 import pytz
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=os.environ.get('LOGLEVEL', 'INFO').upper(),
     format='%(asctime)s %(levelname)s %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -149,6 +149,8 @@ def refresh_token():
 
 def get_earliest_appointment():
     global current_token
+    
+    logger.debug("Base request data: " + str(CONFIG["appointment_request_base"]))
 
     if not current_token:
         if not refresh_token():
