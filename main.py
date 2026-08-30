@@ -5,9 +5,12 @@ import math
 import os
 import random
 import re
+import secrets
 import signal
+import smtplib
 import time
 from datetime import datetime, timedelta
+from email.message import EmailMessage
 
 import httpx
 import pytz
@@ -47,7 +50,9 @@ CONFIG = {
     "gmail": {
         "email": os.getenv("USER_GMAIL"),
         "password": os.getenv("USER_GMAIL_APP_PASSWORD"),
-        "imap_server": "imap.gmail.com"
+        "imap_server": "imap.gmail.com",
+        "smtp_server": "smtp.gmail.com",
+        "smtp_port": 465
     },
 
     "desired_date_range": {
@@ -58,6 +63,8 @@ CONFIG = {
     "timezone": "America/Vancouver",
     "check_interval": 5,
     "token_refresh_interval": 1500,
+    "approval_timeout": int(os.getenv("APPROVAL_TIMEOUT", "300")),
+    "approval_poll_interval": 10,
     "action": os.getenv("ACTION", "look")  # Default action is "look"
 }
 
@@ -345,6 +352,115 @@ def get_otp_from_email():
                 logger.warning("Failed to log out of Gmail IMAP session", exc_info=True)
 
 
+def send_approval_email(appointment):
+    approval_id = secrets.token_hex(8)
+    message = EmailMessage()
+    message["From"] = CONFIG["gmail"]["email"]
+    message["To"] = CONFIG["gmail"]["email"]
+    message["Subject"] = f"ICBC booking approval [{approval_id}]"
+    message.set_content(
+        "An ICBC road test slot is locked and awaiting your approval.\n\n"
+        f"Date: {appointment['appointmentDt']['date']}\n"
+        f"Time: {appointment['startTm']} - {appointment['endTm']}\n\n"
+        "Reply with ACCEPT to book it, or IGNORE to skip it.\n"
+        f"This request expires in {CONFIG['approval_timeout']} seconds."
+    )
+
+    try:
+        with smtplib.SMTP_SSL(
+                CONFIG["gmail"]["smtp_server"], CONFIG["gmail"]["smtp_port"]) as smtp:
+            smtp.login(CONFIG["gmail"]["email"], CONFIG["gmail"]["password"])
+            smtp.send_message(message)
+        logger.info("Approval email sent. Reply with ACCEPT or IGNORE.")
+        return approval_id
+    except Exception as e:
+        logger.info(f"Error sending approval email: {e}")
+        return None
+
+
+def extract_decision_from_text(text):
+    for line in text.splitlines():
+        reply_line = line.strip()
+        if (reply_line.startswith((">", "-----Original Message-----")) or
+                (reply_line.startswith("On ") and reply_line.endswith("wrote:"))):
+            break
+        decision = reply_line.lower()
+        if decision in ("accept", "ignore"):
+            return decision
+    return None
+
+
+def extract_approval_decision(email_message):
+    for part in email_message.walk():
+        if part.get_content_type() != "text/plain" or part.get_filename():
+            continue
+
+        payload = part.get_payload(decode=True)
+        if payload is not None:
+            charset = part.get_content_charset() or "utf-8"
+            decision = extract_decision_from_text(payload.decode(charset, errors="replace"))
+            if decision:
+                return decision
+
+    return None
+
+
+def get_approval_reply(approval_id):
+    mail = None
+    try:
+        mail = imaplib.IMAP4_SSL(CONFIG["gmail"]["imap_server"])
+        mail.login(CONFIG["gmail"]["email"], CONFIG["gmail"]["password"])
+        mail.select("inbox")
+
+        status, messages = mail.search(
+            None,
+            f'(FROM "{CONFIG["gmail"]["email"]}" SUBJECT "{approval_id}")'
+        )
+        if status != "OK":
+            return None
+
+        for message_id in reversed(messages[0].split()):
+            status, msg_data = mail.fetch(message_id, "(RFC822)")
+            if status != "OK" or not msg_data or not isinstance(msg_data[0], tuple):
+                continue
+            decision = extract_approval_decision(email.message_from_bytes(msg_data[0][1]))
+            if decision:
+                return decision
+        return None
+    except Exception as e:
+        logger.info(f"Error checking approval reply: {e}")
+        return None
+    finally:
+        if mail is not None:
+            try:
+                mail.logout()
+            except Exception:
+                logger.warning("Failed to log out of Gmail IMAP session", exc_info=True)
+
+
+def wait_for_user_approval(appointment):
+    approval_id = send_approval_email(appointment)
+    if not approval_id:
+        return False
+
+    deadline = time.monotonic() + CONFIG["approval_timeout"]
+    while not shutdown_requested and time.monotonic() < deadline:
+        decision = get_approval_reply(approval_id)
+        if decision == "accept":
+            logger.info("User accepted appointment by email")
+            return True
+        if decision == "ignore":
+            logger.info("User ignored appointment by email")
+            return False
+        sleep_with_shutdown(CONFIG["approval_poll_interval"])
+
+    if shutdown_requested:
+        logger.info("Shutdown requested while waiting for user approval")
+    else:
+        logger.info("Approval request expired without a reply")
+    return False
+
+
 def verify_otp(booked_ts, otp_code):
     global current_token, drvr_id
 
@@ -445,6 +561,9 @@ def auto_book_earliest_appointment():
 
     if not otp_code:
         logger.info("Failed to get OTP code from email")
+        return False
+
+    if not wait_for_user_approval(appointment):
         return False
 
     if not verify_otp(booked_ts, otp_code):

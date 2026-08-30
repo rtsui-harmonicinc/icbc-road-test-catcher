@@ -10,8 +10,9 @@ Road test appointments in British Columbia are typically booked solid for 6+ mon
 
 - **Automated Monitoring**: Continuously checks for available appointments every 90 seconds
 - **Smart Filtering**: Only considers appointments within your specified date range
-- **Full Automation**: Complete booking process without manual intervention
+- **Controlled Booking**: Requires your email approval before final booking
 - **Email Integration**: Automatically retrieves and processes OTP codes from Gmail
+- **Email Approval**: Waits for an `ACCEPT` or `IGNORE` reply before booking
 - **Token Management**: Handles authentication token refresh automatically
 - **Multi-location Support**: Can monitor multiple ICBC locations simultaneously
 - **Error Handling**: Robust error handling with retry mechanisms
@@ -26,6 +27,7 @@ Road test appointments in British Columbia are typically booked solid for 6+ mon
    - Locks the appointment temporarily
    - Requests OTP code via email
    - Automatically retrieves OTP from Gmail
+   - Emails the slot details to you and waits for your `ACCEPT` or `IGNORE` reply
    - Verifies the OTP code
    - Completes the booking
 
@@ -87,6 +89,7 @@ environment:
   - USER_GMAIL_APP_PASSWORD=your_16_character_app_password  # Replace with Gmail App Password
   - DESIRED_DATE_START=2025-06-24        # Replace with your preferred start date (YYYY-MM-DD)
   - DESIRED_DATE_END=2025-06-30          # Replace with your preferred end date (YYYY-MM-DD)
+  - APPROVAL_TIMEOUT=300                 # Optional reply timeout in seconds
 ```
 
 ### Local Python Configuration
@@ -101,6 +104,7 @@ export USER_GMAIL="your.email@gmail.com"
 export USER_GMAIL_APP_PASSWORD="your_16_character_app_password"
 export DESIRED_DATE_START="2025-06-24"
 export DESIRED_DATE_END="2025-06-30"
+export APPROVAL_TIMEOUT="300"
 ```
 
 **Note**: You must enable 2-factor authentication on Gmail and generate an App Password. Regular Gmail passwords won't work.
@@ -170,6 +174,8 @@ Found 3 available dates for location 214
 Found early date: 2025-06-25
 Date 2025-06-25 successfully locked
 OTP code sent to email
+Approval email sent. Reply with ACCEPT or IGNORE.
+User accepted appointment by email
 OTP code successfully verified
 Booking completed successfully!
 Booking completed successfully! Script terminating.
