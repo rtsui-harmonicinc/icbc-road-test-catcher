@@ -358,6 +358,9 @@ def send_approval_email(appointment):
     message["From"] = CONFIG["gmail"]["email"]
     message["To"] = CONFIG["gmail"]["email"]
     message["Subject"] = f"ICBC booking approval [{approval_id}]"
+    message["Importance"] = "high"
+    message["Priority"] = "urgent"
+    message["X-Priority"] = "1"
     message.set_content(
         "An ICBC road test slot is locked and awaiting your approval.\n\n"
         f"Date: {appointment['appointmentDt']['date']}\n"
