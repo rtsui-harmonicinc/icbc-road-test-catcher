@@ -22,6 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 CONFIG = {
+    "ua_str": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0",
     "login_url": "https://onlinebusiness.icbc.com/deas-api/v1/webLogin/webLogin",
     "appointments_url": "https://onlinebusiness.icbc.com/deas-api/v1/web/getAvailableAppointments",
     "lock_url": "https://onlinebusiness.icbc.com/deas-api/v1/web/lock",
@@ -128,7 +129,7 @@ def refresh_token():
                 json=CONFIG["credentials"],
                 headers={
                     "Content-Type": "application/json",
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0"
+                    "User-Agent": CONFIG["ua_str"]
                 }
             )
             response.raise_for_status()
@@ -179,7 +180,7 @@ def get_earliest_appointment():
                     headers={
                         "Content-Type": "application/json",
                         "Authorization": current_token,
-                        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0"
+                        "User-Agent": CONFIG["ua_str"]
                     }
                 )
                 response.raise_for_status()
@@ -239,7 +240,7 @@ def lock_appointment(appointment):
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": current_token,
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0"
+                    "User-Agent": CONFIG["ua_str"]
                 }
             )
             response.raise_for_status()
@@ -252,7 +253,7 @@ def lock_appointment(appointment):
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": current_token,
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0"
+                    "User-Agent": CONFIG["ua_str"]
                 }
             )
             response.raise_for_status()
@@ -285,7 +286,7 @@ def send_otp_email(booked_ts):
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": current_token,
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0"
+                    "User-Agent": CONFIG["ua_str"]
                 },
                 timeout=timeout
             )
@@ -481,7 +482,7 @@ def verify_otp(booked_ts, otp_code):
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": current_token,
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0"
+                    "User-Agent": CONFIG["ua_str"]
                 }
             )
 
@@ -518,7 +519,7 @@ def book_appointment(booked_ts):
                 headers={
                     "Content-Type": "application/json",
                     "Authorization": current_token,
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 OPR/116.0.0.0"
+                    "User-Agent": CONFIG["ua_str"]
                 }
             )
 
