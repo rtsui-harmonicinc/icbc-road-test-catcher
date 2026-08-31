@@ -306,6 +306,15 @@ def send_otp_email(booked_ts):
         return False
 
 
+def logout_imap(mail):
+    try:
+        mail.logout()
+    except imaplib.IMAP4.abort as e:
+        logger.debug(f"Gmail IMAP session already closed: {e}")
+    except (imaplib.IMAP4.error, OSError) as e:
+        logger.warning(f"Failed to log out of Gmail IMAP session: {e}")
+
+
 def get_otp_from_email():
     mail = None
     try:
@@ -347,10 +356,7 @@ def get_otp_from_email():
         return None
     finally:
         if mail is not None:
-            try:
-                mail.logout()
-            except Exception:
-                logger.warning("Failed to log out of Gmail IMAP session", exc_info=True)
+            logout_imap(mail)
 
 
 def send_approval_email(appointment):
@@ -436,10 +442,7 @@ def get_approval_reply(approval_id):
         return None
     finally:
         if mail is not None:
-            try:
-                mail.logout()
-            except Exception:
-                logger.warning("Failed to log out of Gmail IMAP session", exc_info=True)
+            logout_imap(mail)
 
 
 def wait_for_user_approval(appointment):
