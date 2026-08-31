@@ -60,6 +60,11 @@ CONFIG = {
         "start": os.getenv("DESIRED_DATE_START", "2025-06-24"),
         "end": os.getenv("DESIRED_DATE_END", "2025-06-30")
     },
+    
+    "desired_time_range": {
+        "start": os.getenv("DESIRED_TIME_START", "09:30"),
+        "end": os.getenv("DESIRED_TIME_END", "17:00")
+    },
 
     "timezone": "America/Vancouver",
     "check_interval": 5,
@@ -168,6 +173,11 @@ def get_earliest_appointment():
         earliest_appointment = None
         desired_start = datetime.strptime(CONFIG["desired_date_range"]["start"], "%Y-%m-%d").date()
         desired_end = datetime.strptime(CONFIG["desired_date_range"]["end"], "%Y-%m-%d").date()
+        
+        desired_time_start = datetime.strptime(CONFIG["desired_time_range"]["start"], "%H:%M").time()
+        desired_time_end = datetime.strptime(CONFIG["desired_time_range"]["end"], "%H:%M").time()
+        
+        logger.debug(f"Desired time range: {desired_time_start} to {desired_time_end}")
 
         with httpx.Client() as client:
             for location_id in CONFIG["location_ids"]:
@@ -190,14 +200,21 @@ def get_earliest_appointment():
                 logger.info(f"Found {len(appointments)} available dates for location {location_id}")
 
                 for appointment in appointments:
-                    if "appointmentDt" in appointment:
-                        appointment_date = datetime.strptime(appointment["appointmentDt"]["date"], "%Y-%m-%d").date()
+                    if "appointmentDt" not in appointment or "startTm" not in appointment or "endTm" not in appointment:
+                        continue
+                    start_time = datetime.strptime(appointment["startTm"], "%H:%M").time()
+                    end_time = datetime.strptime(appointment["endTm"], "%H:%M").time()
+                    if not (desired_time_start <= start_time <= desired_time_end and
+                            desired_time_start <= end_time <= desired_time_end):
+                        logger.info(f"Skipping appointment {appointment['appointmentDt']['date']} {start_time} - {end_time}")
+                        continue
+                    appointment_date = datetime.strptime(appointment["appointmentDt"]["date"], "%Y-%m-%d").date()
 
-                        if desired_start <= appointment_date <= desired_end:
-                            if (earliest_appointment is None or
-                                    appointment_date < datetime.strptime(earliest_appointment["appointmentDt"]["date"],
-                                                                         "%Y-%m-%d").date()):
-                                earliest_appointment = appointment
+                    if desired_start <= appointment_date <= desired_end:
+                        if (earliest_appointment is None or
+                                appointment_date < datetime.strptime(earliest_appointment["appointmentDt"]["date"],
+                                                                        "%Y-%m-%d").date()):
+                            earliest_appointment = appointment
 
         return earliest_appointment
 
@@ -604,10 +621,10 @@ def get_next_check_time():
     return (now + timedelta(hours=1)).replace(minute=14, second=50, microsecond=0)
 
 
-def run_hourly_check_window():
+def run_hourly_check_window(n=5):
     last_token_time = time.time()
 
-    for _ in range(5):
+    for _ in range(n):
         if shutdown_requested:
             logger.info("Shutdown requested during hourly check window")
             return False
@@ -656,8 +673,9 @@ def main():
         return
 
     next_check_time = get_next_check_time()
-
-    logger.info("Script started. Monitoring will run at :14, :29, :44, and :59 for 5 intervals each.")
+    # run once immediately
+    run_hourly_check_window(1)
+    logger.info("Script started. Monitoring will run at :14, :29, :44, and :59.")
 
     try:
         while not shutdown_requested:

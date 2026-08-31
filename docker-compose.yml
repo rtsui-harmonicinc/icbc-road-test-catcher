@@ -14,5 +14,7 @@ services:
     #   - USER_GMAIL_APP_PASSWORD=your_16_character_app_password
     #   - DESIRED_DATE_START=2025-06-24
     #   - DESIRED_DATE_END=2025-06-30
+    #   - DESIRED_TIME_START=09:30
+    #   - DESIRED_TIME_END=17:00
     #   - APPROVAL_TIMEOUT=300
     #   - ACTION=book # or "look"
