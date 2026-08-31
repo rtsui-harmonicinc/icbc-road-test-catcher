@@ -595,10 +595,10 @@ def auto_look_earliest_appointment():
 def get_next_check_time():
     now = datetime.now(pytz.timezone(CONFIG["timezone"]))
     for minute in (14, 29, 44, 59):
-        next_run = now.replace(minute=minute, second=0, microsecond=0)
+        next_run = now.replace(minute=minute, second=50, microsecond=0)
         if next_run > now:
             return next_run
-    return (now + timedelta(hours=1)).replace(minute=14, second=0, microsecond=0)
+    return (now + timedelta(hours=1)).replace(minute=14, second=50, microsecond=0)
 
 
 def run_hourly_check_window():
