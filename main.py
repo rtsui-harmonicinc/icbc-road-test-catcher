@@ -574,14 +574,16 @@ def auto_book_earliest_appointment():
         return False
 
     otp_code = None
+    sleep_with_shutdown(30) # avoid consuming old OTP
+    
     for _ in range(20):
         if shutdown_requested:
             logger.info("Shutdown requested while waiting for OTP code")
             return False
-        sleep_with_shutdown(10)
         otp_code = get_otp_from_email()
         if otp_code:
             break
+        sleep_with_shutdown(10)
 
     if not otp_code:
         logger.info("Failed to get OTP code from email")
